@@ -1,0 +1,12 @@
+# 출력물 (개인정보 가능 — 절대 커밋 금지)
+*.json
+*_debug.html
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
