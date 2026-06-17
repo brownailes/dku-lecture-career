@@ -33,12 +33,17 @@ playwright install chromium
 
 실행:
 ```bash
-python3 scripts/fetch_career.py --name 홍길동 --out ./홍길동_강의경력.json
-# 교번(ID), 비밀번호를 터미널에서 입력한다. 비번은 화면에 표시되지 않는다.
+# 인자를 주거나
+python3 scripts/fetch_career.py --name 홍길동 --format both --out ./홍길동_강의경력.json
+
+# 아무것도 안 주면 터미널에서 형식·경로·교번·비번을 차례로 묻는다
+python3 scripts/fetch_career.py
 ```
+교번(ID)·비밀번호는 터미널에서 입력한다. 비번은 화면에 표시되지 않는다.
 
 옵션:
-- `--out`       출력 JSON 경로(기본 `dku_lecture_career.json`)
+- `--format`    출력 형식 `json` / `md` / `both` (미지정 시 터미널에서 선택)
+- `--out`       출력 경로 (미지정 시 터미널에서 입력). `both`면 같은 이름으로 `.json`·`.md` 둘 다 저장
 - `--name`      교수명(출력 라벨)
 - `--headless`  브라우저 창 숨김(기본은 창 표시)
 - `--keep-id`   출력 JSON에 교번 포함(기본 미포함)

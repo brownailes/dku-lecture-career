@@ -90,6 +90,43 @@ def grab_career_html(page):
     return page.content()
 
 
+def to_markdown(data):
+    """강의경력 데이터를 Markdown 표 문자열로 변환."""
+    recs = data["records"]
+    title = f"강의경력 — {data['professor']}" if data.get("professor") else "강의경력"
+    span = ""
+    if recs:
+        years = sorted({r["year"] for r in recs})
+        span = f" ({years[0]}~{years[-1]})"
+    lines = [
+        f"# {title}",
+        "",
+        f"> 출처: {data['source']} · 추출일 {data['extracted_at']} · 총 {data['total']}건{span}",
+        "",
+        "| # | 년도 | 학기 | 소속부서 | 직급 | 담당과목 | 강의시작 | 강의종료 | 시간 |",
+        "|---|------|------|----------|------|----------|----------|----------|------|",
+    ]
+    for r in recs:
+        lines.append(
+            f"| {r['no']} | {r['year']} | {r['semester']} | {r['department']} | "
+            f"{r['position']} | {r['course']} | {r['start_date']} | {r['end_date']} | "
+            f"{r['lecture_hours']} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def resolve_output(fmt, out):
+    """형식/경로를 인자→대화형 순으로 결정한다."""
+    if fmt is None:
+        c = input("출력 형식  [1] JSON  [2] Markdown  [3] 둘 다  (기본 1): ").strip() or "1"
+        fmt = {"1": "json", "2": "md", "3": "both"}.get(c, "json")
+    if out is None:
+        ext = "md" if fmt == "md" else "json"
+        default = f"dku_lecture_career.{ext}"
+        out = input(f"저장 경로 (기본 {default}): ").strip() or default
+    return fmt, out
+
+
 def parse_career_table(html):
     tables = re.findall(r"<table[^>]*>.*?</table>", html, re.S)
     target = None
@@ -118,12 +155,18 @@ def parse_career_table(html):
 def main():
     ap = argparse.ArgumentParser(
         description="단국대 교수 강의경력(findLctCrerInq)을 JSON으로 저장한다.")
-    ap.add_argument("--out", default="dku_lecture_career.json", help="출력 JSON 경로")
+    ap.add_argument("--format", choices=["json", "md", "both"], default=None,
+                    help="출력 형식: json / md / both (미지정 시 터미널에서 선택)")
+    ap.add_argument("--out", default=None,
+                    help="출력 경로 (미지정 시 터미널에서 입력). both면 확장자만 .json/.md로 바뀜")
     ap.add_argument("--name", default="", help="교수명(출력 라벨용, 선택)")
     ap.add_argument("--headless", action="store_true", help="브라우저 창 숨김")
     ap.add_argument("--keep-id", action="store_true",
                     help="출력 JSON에 교번 포함(기본은 미포함)")
     args = ap.parse_args()
+
+    # 형식·경로를 먼저 결정(자격증명 입력 전 — 가벼운 선택부터)
+    fmt, out = resolve_output(args.format, args.out)
 
     uid, pw = read_credentials()
     try:
@@ -148,21 +191,32 @@ def main():
     if args.keep_id:
         data["account"] = uid
 
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
     if not records:
         # 디버그용 HTML 덤프(개인정보 없음: 본인 강의 목록 페이지)
-        dbg = os.path.splitext(args.out)[0] + "_debug.html"
+        dbg = os.path.splitext(out)[0] + "_debug.html"
         with open(dbg, "w", encoding="utf-8") as f:
             f.write(html)
-        print(f"⚠ 강의경력 데이터를 찾지 못했습니다. (교수 계정이 아니거나 페이지 구조 변경)")
+        print("⚠ 강의경력 데이터를 찾지 못했습니다. (교수 계정이 아니거나 페이지 구조 변경)")
         print(f"  디버그 HTML: {dbg}")
         sys.exit(3)
 
+    base, ext = os.path.splitext(out)
+    written = []
+    if fmt in ("json", "both"):
+        p = out if (fmt == "json" and ext.lower() == ".json") else base + ".json"
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        written.append(p)
+    if fmt in ("md", "both"):
+        p = out if (fmt == "md" and ext.lower() == ".md") else base + ".md"
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(to_markdown(data))
+        written.append(p)
+
     years = sorted({r["year"] for r in records})
-    print(f"✓ 저장 완료: {len(records)}건 → {args.out}")
-    print(f"  기간: {years[0]} ~ {years[-1]}")
+    print(f"✓ 저장 완료: {len(records)}건 ({years[0]} ~ {years[-1]})")
+    for p in written:
+        print(f"  → {p}")
 
 
 if __name__ == "__main__":
