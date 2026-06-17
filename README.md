@@ -24,7 +24,7 @@
 ## 설치
 
 ```bash
-git clone https://github.com/<your-account>/dku-lecture-career.git
+git clone https://github.com/brownailes/dku-lecture-career.git
 cd dku-lecture-career
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
